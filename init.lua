@@ -15,7 +15,7 @@ vim.opt.number = true
 --  Experiment for yourself to see if you like it!
 -- vim.opt.relativenumber = true
 
--- Enable mouse mode, can be useful for resizing splits for example!
+-- iEnable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = "a"
 
 -- Don't show the mode, since it's already in the status line
@@ -127,7 +127,7 @@ vim.opt.rtp:prepend(lazypath)
 -- [[ Configure and install plugins ]]
 --
 --  To check the current status of your plugins, run
---    :Lazy
+--   :Lazy
 --
 --  You can press `?` in this menu for help. Use `:q` to close the window
 --
@@ -144,7 +144,28 @@ require("lazy").setup({
 	-- keys can be used to configure plugin behavior/loading/etc.
 	--
 	-- Use `opts = {}` to force a plugin to be loaded.
-	--
+	{ -- Autoclose and autorename HTML tags
+		"windwp/nvim-ts-autotag",
+		event = "InsertEnter",
+		config = function()
+			require("nvim-ts-autotag").setup()
+		end,
+	},
+	{ -- Integrate external formatters and linters
+		"jose-elias-alvarez/null-ls.nvim",
+		event = "BufReadPre",
+		dependencies = { "mason.nvim" },
+		opts = function()
+			local nls = require("null-ls")
+			return {
+				sources = {
+					nls.builtins.formatting.prettier,
+					nls.builtins.diagnostics.eslint_d,
+					nls.builtins.code_actions.eslint_d,
+				},
+			}
+		end,
+	},
 
 	-- Here is a more advanced example where we pass configuration
 	-- options to `gitsigns.nvim`. This is equivalent to the following Lua:
@@ -478,6 +499,17 @@ require("lazy").setup({
 			--  - settings (table): Override the default settings passed when initializing the server.
 			--        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
 			local servers = {
+				cssls = {
+					settings = {
+						validate = true,
+						lint = {
+							unknownAtRules = "ignore",
+						},
+					},
+				},
+				tsserver = {},
+				eslint = {},
+
 				-- clangd = {},
 				-- gopls = {},
 				-- pyright = {},
@@ -499,14 +531,12 @@ require("lazy").setup({
 						Lua = {
 							completion = {
 								callSnippet = "Replace",
-							},
-							-- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
+							}, -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
 							-- diagnostics = { disable = { 'missing-fields' } },
 						},
 					},
 				},
 			}
-
 			-- Ensure the servers and tools above are installed
 			--  To check the current status of installed tools and/or manually install
 			--  other tools, you can run
@@ -520,6 +550,13 @@ require("lazy").setup({
 			local ensure_installed = vim.tbl_keys(servers or {})
 			vim.list_extend(ensure_installed, {
 				"stylua", -- Used to format Lua code
+				"css-lsp",
+				"pyright",
+				"black",
+				"isort",
+				"typescript-language-server",
+				"eslint_d",
+				"prettier",
 			})
 			require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
 
@@ -566,10 +603,16 @@ require("lazy").setup({
 			end,
 			formatters_by_ft = {
 				lua = { "stylua" },
+				css = { "prettier" },
+				python = { "black", "isort" },
+				javascript = { "prettier" },
+				typescript = { "prettier" },
+				javascriptreact = { "prettier" },
+				typescriptreact = { "prettier" },
 				-- Conform can also run multiple formatters sequentially
 				-- python = { "isort", "black" },
 				--
-				-- You can use a sub-list to tell conform to run *until* a formatter
+				-- You can use a sub-list to tellz conform to run *until* a formatter
 				-- is found.
 				-- javascript = { { "prettierd", "prettier" } },
 			},
@@ -764,6 +807,7 @@ require("lazy").setup({
 		opts = {
 			ensure_installed = {
 				"bash",
+				"css",
 				"c",
 				"diff",
 				"html",
@@ -774,6 +818,10 @@ require("lazy").setup({
 				"query",
 				"vim",
 				"vimdoc",
+				"python",
+				"javascript",
+				"typescript",
+				"tsx",
 			},
 			-- Autoinstall languages that are not installed
 			auto_install = true,
