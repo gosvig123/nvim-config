@@ -1,4 +1,8 @@
--- Check if running inside VSCode
+vim.g.python3_host_prog = "/usr/bin/python3"
+
+-- disable perl
+vim.g.loaded_perl_provider = 0
+
 if vim.g.vscode then
   -- VSCode-specific configuration
   vim.g.mapleader = " "
@@ -9,10 +13,8 @@ if vim.g.vscode then
   vim.opt.ignorecase = true
   vim.opt.smartcase = true
 
-  -- Folding options
-  vim.opt.foldmethod = "expr"
-  vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
-  vim.opt.foldlevelstart = 99 -- Start with all folds open
+  -- Increase timeoutlen
+  vim.opt.timeoutlen = 1000
 
   -- VSCode-specific keymaps
   local vscode = require("vscode-neovim")
@@ -69,6 +71,21 @@ if vim.g.vscode then
   vscode_keymap("n", "<leader>b", "workbench.action.toggleActivityBarVisibility")
   vscode_keymap("n", "<leader>z", "workbench.action.toggleZenMode")
 
+  -- Git integration keymaps
+  vscode_keymap("n", "<leader>gb", "gitlens.toggleLineBlame")
+  vscode_keymap("n", "<leader>gh", "gitlens.showQuickFileHistory")
+  vscode_keymap("n", "<leader>gc", "git.commit")
+  vscode_keymap("n", "<leader>gp", "git.push")
+
+  -- Debugging keymaps
+  vscode_keymap("n", "<leader>db", "editor.debug.action.toggleBreakpoint")
+  vscode_keymap("n", "<leader>dc", "workbench.action.debug.continue")
+  vscode_keymap("n", "<leader>di", "workbench.action.debug.stepInto")
+  vscode_keymap("n", "<leader>do", "workbench.action.debug.stepOver")
+  vscode_keymap("n", "<leader>dO", "workbench.action.debug.stepOut")
+  vscode_keymap("n", "<leader>dr", "workbench.action.debug.restart")
+  vscode_keymap("n", "<leader>dt", "workbench.action.debug.start")
+
   -- Plugins
   local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
   if not vim.loop.fs_stat(lazypath) then
@@ -92,63 +109,20 @@ if vim.g.vscode then
       event = "VeryLazy",
       init = function()
         vim.o.timeout = true
-        vim.o.timeoutlen = 300
+        vim.o.timeoutlen = 1000
       end,
       opts = {}
     },
-    -- Tree-sitter
-    {
-      "nvim-treesitter/nvim-treesitter",
-      build = ":TSUpdate",
-      config = function()
-        require("nvim-treesitter.configs").setup({
-          ensure_installed = { "lua", "vim", "vimdoc", "javascript", "typescript", "python", "html", "css" },
-          highlight = {
-            enable = true,
-            additional_vim_regex_highlighting = false,
-          },
-          indent = { enable = true },
-          incremental_selection = { enable = true },
-          -- Folding
-          fold = { enable = true },
-        })
-      end,
-    },
-    -- Additional syntax highlighting plugins
-    { "sheerun/vim-polyglot" },
-    {
-      "norcalli/nvim-colorizer.lua",
-      config = function()
-        require("colorizer").setup()
-      end,
-    },
-    {
-      "lukas-reineke/indent-blankline.nvim",
-      main = "ibl",
-      opts = {},
-    },
-    -- Folding preview
-    {
-      "anuvyklack/pretty-fold.nvim",
-      config = function()
-        require("pretty-fold").setup()
-      end
-    },
-    {
-      "anuvyklack/fold-preview.nvim",
-      dependencies = "anuvyklack/keymap-amend.nvim",
-      config = function()
-        require("fold-preview").setup()
-      end
-    },
-    -- LSP Support
-    {'neovim/nvim-lspconfig'},
-    {'williamboman/mason.nvim'},
-    {'williamboman/mason-lspconfig.nvim'},
-    -- Autocompletion
+    -- Keep autocompletion plugins
     {'hrsh7th/nvim-cmp'},
     {'hrsh7th/cmp-nvim-lsp'},
     {'L3MON4D3/LuaSnip'},
+    { "hrsh7th/cmp-buffer" },
+    { "hrsh7th/cmp-path" },
+    { "hrsh7th/cmp-cmdline" },
+    { "onsails/lspkind-nvim" },
+    { "tpope/vim-fugitive" },
+    { "lewis6991/gitsigns.nvim" },
   }, {
     performance = {
       rtp = {
@@ -166,76 +140,50 @@ if vim.g.vscode then
     },
   })
 
-  -- LSP Configuration
-  local servers = {
-    -- Python LSP
-    pyright = {},
-    
-    -- JavaScript/TypeScript LSP
-    tsserver = {},
-
-    -- Optional: Add more LSPs as needed
-    -- eslint = {},
-    -- pylsp = {}, -- An alternative to pyright
-  }
-
-  -- Ensure the servers above are installed
-  require('mason').setup()
-  require('mason-lspconfig').setup {
-    ensure_installed = vim.tbl_keys(servers),
-    handlers = {
-      function(server_name)
-        local server = servers[server_name] or {}
-        -- This sets up the LSP with default configurations
-        require('lspconfig')[server_name].setup(server)
-      end,
-    },
-  }
-
-  -- Set up LSP keybindings
-  vim.api.nvim_create_autocmd('LspAttach', {
-    group = vim.api.nvim_create_augroup('UserLspConfig', {}),
-    callback = function(ev)
-      local opts = { buffer = ev.buf }
-      vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
-      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
-      vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
-      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
-      vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
-      vim.keymap.set('n', '<space>D', vim.lsp.buf.type_definition, opts)
-      vim.keymap.set('n', '<space>rn', vim.lsp.buf.rename, opts)
-      vim.keymap.set({ 'n', 'v' }, '<space>ca', vim.lsp.buf.code_action, opts)
-      vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
-    end,
-  })
-
   -- Autocompletion setup
   local cmp = require('cmp')
+  local lspkind = require('lspkind')
+
   cmp.setup({
+    enabled = function()
+      -- Disable completion in comments
+      local context = require 'cmp.config.context'
+      -- Keep command mode completion enabled when cursor is in a comment
+      if vim.api.nvim_get_mode().mode == 'c' then
+        return true
+      else
+        return not context.in_treesitter_capture("comment") 
+          and not context.in_syntax_group("Comment")
+      end
+    end,
     snippet = {
       expand = function(args)
         require('luasnip').lsp_expand(args.body)
       end,
     },
     mapping = cmp.mapping.preset.insert({
-      ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-      ['<C-f>'] = cmp.mapping.scroll_docs(4),
-      ['<C-Space>'] = cmp.mapping.complete(),
-      ['<C-e>'] = cmp.mapping.abort(),
-      ['<CR>'] = cmp.mapping.confirm({ select = true }),
     }),
+    formatting = {
+      format = lspkind.cmp_format({
+        mode = 'symbol_text',
+        maxwidth = 50,
+      })
+    },
     sources = cmp.config.sources({
       { name = 'nvim_lsp' },
       { name = 'luasnip' },
-    }, {
-      { name = 'buffer' },
+      { name = 'path' },
+      { name = 'buffer', keyword_length = 5 },
     })
   })
 
-  -- Additional VSCode-specific settings
-  vim.g.vscode_snippets_enabled = true
-  vim.g.vscode_completion_enabled = true
-  vim.g.vscode_format_on_save = true
+  -- Git integration
+  require('gitsigns').setup()
+
+  -- VSCode-specific settings
+  vim.g.vscode_snippets_enabled = false  -- Prefer VSCode snippets
+  vim.g.vscode_completion_enabled = false  -- Prefer VSCode completion UI
+  vim.g.vscode_format_on_save = false  -- Let VSCode handle formatting
 
   -- Defer loading of some functionality
   vim.defer_fn(function()
