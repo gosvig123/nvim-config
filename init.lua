@@ -1,5 +1,9 @@
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+  -- Basic options
+  vim.opt.clipboard = "unnamedplus"
+  vim.opt.ignorecase = true
+  vim.opt.smartcase = true
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
     "git",
