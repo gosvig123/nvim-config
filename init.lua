@@ -36,6 +36,19 @@ local plugins = {
       "hrsh7th/vim-vsnip",
     },
   },
+  {
+    "nvim-treesitter/nvim-treesitter",
+    build = ":TSUpdate",
+    config = function() 
+      local configs = require("nvim-treesitter.configs")
+      configs.setup({
+          ensure_installed = { "lua", "vim", "vimdoc", "query" },
+          sync_install = false,
+          highlight = { enable = true },
+          indent = { enable = true },  
+      })
+    end
+  }
 }
 
 -- Setup lazy.nvim
@@ -128,3 +141,76 @@ lspconfig.pyright.setup {
   on_attach = on_attach,
   capabilities = capabilities
 }
+
+if vim.g.vscode then
+  -- VSCode extension
+  local vscode = require('vscode-neovim')
+
+  -- Autocompletion
+  vim.opt.completeopt = {'menu', 'menuone', 'noselect'}
+
+  -- Configure nvim-cmp
+  local cmp = require('cmp')
+  cmp.setup({
+    snippet = {
+      expand = function(args)
+        vim.fn["vsnip#anonymous"](args.body)
+      end,
+    },
+    mapping = cmp.mapping.preset.insert({
+      ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+      ['<C-f>'] = cmp.mapping.scroll_docs(4),
+      ['<C-Space>'] = cmp.mapping.complete(),
+      ['<C-e>'] = cmp.mapping.abort(),
+      ['<CR>'] = cmp.mapping.confirm({ select = true }),
+    }),
+    sources = cmp.config.sources({
+      { name = 'vscode-neovim' },
+      { name = 'nvim_lsp' },
+      { name = 'buffer' },
+    })
+  })
+
+  -- Set up lspconfig
+  local lspconfig = require('lspconfig')
+  local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
+  -- Common on_attach function
+  local on_attach = function(client, bufnr)
+    -- Enable completion triggered by <c-x><c-o>
+    vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
+
+    -- Add any other common setup here
+  end
+
+  -- Configure tsserver
+  lspconfig.tsserver.setup {
+    capabilities = capabilities,
+    on_attach = on_attach,
+    root_dir = lspconfig.util.root_pattern("package.json", "tsconfig.json", "jsconfig.json"),
+    init_options = {
+      preferences = {
+        importModuleSpecifierPreference = "relative",
+      },
+    },
+  }
+
+  -- Configure pyright
+  lspconfig.pyright.setup {
+    capabilities = capabilities,
+    on_attach = on_attach,
+    settings = {
+      python = {
+        analysis = {
+          autoSearchPaths = true,
+          useLibraryCodeForTypes = true,
+          diagnosticMode = "workspace"
+        }
+      }
+    }
+  }
+
+  -- ... rest of your existing VSCode-specific configuration ...
+end
+
+-- ... rest of your existing configuration ...
