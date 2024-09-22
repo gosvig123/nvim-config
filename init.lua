@@ -1,3 +1,6 @@
+-- Specify the Python 3 host program for Neovim
+vim.g.python3_host_prog = '/Users/k.gosvig/miniconda3/bin/python'
+
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 -- Basic options
@@ -17,6 +20,38 @@ vim.opt.termguicolors = true  -- Enable 24-bit RGB colors
 vim.opt.scrolloff = 8         -- Keep 8 lines above/below cursor when scrolling
 vim.opt.sidescrolloff = 8     -- Keep 8 columns left/right of cursor when scrolling horizontally
 vim.opt.signcolumn = "yes"    -- Always show the signcolumne
+
+-- Add 12-line jumps and enhanced syntax highlighting when not in VSCode
+if not vim.g.vscode then
+  -- 12-line jumps
+  vim.keymap.set('n', '<C-S-Up>', '12k', { noremap = true, silent = true })
+  vim.keymap.set('n', '<C-S-Down>', '12j', { noremap = true, silent = true })
+
+  -- Enhanced syntax highlighting
+  vim.opt.syntax = "on"
+  vim.opt.synmaxcol = 200
+  vim.cmd([[
+    augroup enhanced_syntax
+      autocmd!
+      autocmd BufEnter * :syntax sync fromstart
+    augroup END
+  ]])
+
+  -- Add Treesitter for even better syntax highlighting
+  local status_ok, treesitter_config = pcall(require, 'nvim-treesitter.configs')
+  if status_ok then
+    treesitter_config.setup {
+      ensure_installed = { "lua", "vim", "vimdoc", "query", "javascript", "typescript", "python" },
+      highlight = {
+        enable = true,
+        additional_vim_regex_highlighting = false,
+      },
+    }
+  else
+    print("Treesitter not found. Some features may be limited.")
+  end
+end
+
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
     "git",
@@ -65,24 +100,6 @@ local plugins = {
     end
   },
   {
-    "zbirenbaum/copilot.lua",
-    cmd = "Copilot",
-    event = "InsertEnter",
-    config = function()
-      require("copilot").setup({
-        suggestion = { enabled = false },
-        panel = { enabled = false },
-      })
-    end,
-  },
-  {
-    "zbirenbaum/copilot-cmp",
-    dependencies = { "copilot.lua" },
-    config = function()
-      require("copilot_cmp").setup()
-    end,
-  },
-  {
     "onsails/lspkind.nvim",
     config = function()
       require('lspkind').init()
@@ -103,6 +120,25 @@ local plugins = {
   },
   -- Add Telescope to your plugins list
   { "nvim-telescope/telescope.nvim", dependencies = { "nvim-lua/plenary.nvim" } },
+
+  -- Add SuperMaven only when not in VSCode
+  {
+    "MunifTanjim/nui.nvim",
+    cond = not vim.g.vscode,
+  },
+  {
+    "supermaven-inc/supermaven-nvim",
+    cond = not vim.g.vscode,
+    config = function()
+      require("supermaven-nvim").setup({})
+    end
+  },
+  {
+    "folke/tokyonight.nvim",
+    lazy = false,
+    priority = 1000,
+    opts = {},
+  },
 }
 
 -- Setup lazy.nvim
@@ -153,9 +189,8 @@ cmp.setup({
     end, { 'i', 's' }),
   }),
   sources = cmp.config.sources({
-    { name = 'copilot' },
     { name = 'nvim_lsp' },
-    { name = 'luasnip' },  -- Add LuaSnip source
+    { name = 'luasnip' },
     { name = 'vsnip' },
   }, {
     { name = 'buffer' },
@@ -164,7 +199,6 @@ cmp.setup({
     format = lspkind.cmp_format({
       mode = "symbol",
       max_width = 50,
-      symbol_map = { Copilot = "" }
     })
   }
 })
@@ -324,7 +358,6 @@ if vim.g.vscode then
     }),
     sources = cmp.config.sources({
       { name = 'vscode-neovim' },
-      { name = 'copilot' },
       { name = 'nvim_lsp' },
       { name = 'luasnip' },
       { name = 'buffer' },
@@ -403,7 +436,7 @@ end
 -- Set up Telescope
 local telescope = require('telescope.builtin')
 vim.keymap.set('n', '<space>f', telescope.find_files, {})
-vim.keymap.set('n', '<space>g', telescope.live_grep, {})
+vim.keymap.set('n', '<space>/', telescope.live_grep, {})
 vim.keymap.set('n', '<space>b', telescope.buffers, {})
 -- Add this new keymapping for searching in the current buffer
 vim.keymap.set('n', '<leader>/', function()
@@ -412,5 +445,57 @@ vim.keymap.set('n', '<leader>/', function()
     previewer = false,
   })
 end, { desc = '[/] Fuzzily search in current buffer' })
+
+-- Add SuperMaven configuration (only when not in VSCode)
+if not vim.g.vscode then
+  local supermaven = require('supermaven-nvim')
+  supermaven.setup({
+    keymaps = {
+      accept_suggestion = "<Tab>",
+      clear_suggestion = "<C-]>",
+      accept_word = "<C-j>",
+    },
+    ignore_filetypes = { cpp = true },
+    color = {
+      suggestion_color = "#ffffff",
+      cterm = 244,
+    },
+  })
+end
+
+-- Set the colorscheme
+vim.cmd[[colorscheme tokyonight]]
+
+vim.g.tokyonight_style = "storm" -- Available options: night, storm, day
+vim.g.tokyonight_italic_functions = true
+vim.g.tokyonight_sidebars = { "qf", "vista_kind", "terminal", "packer" }
+
+-- Add these keymappings after the existing keymappings section
+
+-- Copy and paste
+vim.keymap.set('n', '<C-c>', '"+y', { noremap = true, silent = true })
+vim.keymap.set('v', '<C-c>', '"+y', { noremap = true, silent = true })
+vim.keymap.set('n', '<C-v>', '"+p', { noremap = true, silent = true })
+vim.keymap.set('i', '<C-v>', '<C-r>+', { noremap = true, silent = true })
+
+-- Move to start/end of line (using Alt/Option key, which works in most terminals including Warp)
+vim.keymap.set('n', '<A-Left>', '0', { noremap = true, silent = true })
+vim.keymap.set('i', '<A-Left>', '<C-o>0', { noremap = true, silent = true })
+vim.keymap.set('n', '<A-Right>', '$', { noremap = true, silent = true })
+vim.keymap.set('i', '<A-Right>', '<C-o>$', { noremap = true, silent = true })
+
+-- Add visual mode mappings as well
+vim.keymap.set('v', '<A-Left>', '0', { noremap = true, silent = true })
+vim.keymap.set('v', '<A-Right>', '$', { noremap = true, silent = true })
+
+-- Set up line highlighting
+vim.opt.cursorline = true  -- Highlight the current line
+vim.opt.cursorlineopt = "both"  -- Highlight both the line and line number
+
+-- Define highlight groups for active line
+vim.cmd([[
+  highlight CursorLine guibg=#1a3a1a
+  highlight CursorLineNr guifg=#00ff00 guibg=#1a3a1a
+]])
 
 print("LSP configuration completed")
