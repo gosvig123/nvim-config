@@ -85,10 +85,41 @@ local plugins = {
   { "folke/tokyonight.nvim" },
 
   -- Null LS for Formatting and Linting
-  { "jose-elias-alvarez/null-ls.nvim" },
+  {
+    "jose-elias-alvarez/null-ls.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    config = function()
+      local null_ls = require("null-ls")
+      null_ls.setup({
+        sources = {
+          -- JavaScript/TypeScript
+          null_ls.builtins.formatting.prettier.with({
+            extra_filetypes = { "svelte" },
+          }),
+
+          -- Python
+          null_ls.builtins.formatting.black,
+          null_ls.builtins.formatting.isort,
+
+          -- Lua
+          null_ls.builtins.formatting.stylua,
+
+          -- Shell scripts
+          null_ls.builtins.formatting.shfmt,
+
+          -- General
+          null_ls.builtins.formatting.trim_whitespace,
+          null_ls.builtins.formatting.trim_newlines,
+        },
+      })
+    end,
+  },
 
   -- LSP Saga for Enhanced UI
   { "glepnir/lspsaga.nvim", branch = "main" },
+
+  -- Indentation Lines
+  { "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
 }
 
 -- Setup lazy.nvim
@@ -113,17 +144,43 @@ require('nvim-tree').setup {}
 
 -- lualine.nvim
 require('lualine').setup {
-  options = { theme = 'tokyonight' },
+  options = {
+    theme = 'tokyonight',
+    section_separators = { left = '', right = '' },
+    component_separators = { left = '', right = '' },
+  },
+  sections = {
+    lualine_a = {'mode'},
+    lualine_b = {'branch', 'diff', 'diagnostics'},
+    lualine_c = {'filename'},
+    lualine_x = {'encoding', 'fileformat', 'filetype'},
+    lualine_y = {'progress'},
+    lualine_z = {'location'}
+  },
 }
 
--- null-ls.nvim
-local null_ls = require("null-ls")
-null_ls.setup({
-  sources = {
-    null_ls.builtins.formatting.prettier,
-    null_ls.builtins.diagnostics.eslint,
-  },
+-- Remove the previous BufWritePre autocmd and add format-on-type functionality
+vim.api.nvim_create_autocmd({"TextChanged", "TextChangedI"}, {
+  pattern = "*",
+  callback = function()
+    -- Use a debounced timer to avoid excessive formatting
+    local timer = vim.loop.new_timer()
+    if timer then
+      timer:start(500, 0, vim.schedule_wrap(function()
+        -- Only format if buffer is modifiable and not in insert mode
+        if vim.bo.modifiable and vim.api.nvim_get_mode().mode ~= "i" then
+          vim.lsp.buf.format({ async = true })
+        end
+        timer:close()
+      end))
+    end
+  end,
 })
+
+-- Keep the manual formatting keybind as a fallback
+vim.keymap.set('n', '<leader>fm', function()
+  vim.lsp.buf.format({ async = true })
+end, { noremap = true, silent = true, desc = "Format document" })
 
 -- lspsaga.nvim
 require('lspsaga').setup({
@@ -281,4 +338,44 @@ vim.keymap.set('n', 'Z', 'u', { desc = 'Undo by Shift+Z' })
 vim.keymap.set('i', '<S-Z>', '<C-o>u', { desc = 'Undo by Shift+Z' })
 vim.keymap.set('n', 'X', '<C-r>', { desc = 'Redo by Shift+X' })
 vim.keymap.set('i', '<S-X>', '<C-o><C-r>', { desc = 'Redo by Shift+X' })
+
+-- Configure indent-blankline.nvim
+require("ibl").setup {
+    indent = {
+        char = "│",
+    },
+    scope = {
+        enabled = true,
+        show_start = true,
+        show_end = true,
+    },
+    exclude = {
+        filetypes = {},
+        buftypes = {},
+    },
+}
+
+-- Ensure Treesitter is configured with additional modules for enhanced syntax highlighting
+require('nvim-treesitter.configs').setup {
+  ensure_installed = {
+    "lua", "python", "javascript", "typescript", "html", "css", "json", "markdown"
+  },
+  highlight = {
+    enable = true,                -- Enable Treesitter-based syntax highlighting
+    additional_vim_regex_highlighting = false,
+  },
+  incremental_selection = {
+    enable = true,
+    keymaps = {
+      init_selection = "gnn",
+      node_incremental = "grn",
+      scope_incremental = "grc",
+      node_decremental = "grm",
+    },
+  },
+  indent = {
+    enable = true,                -- Treesitter-based indentation
+    disable = { "python" },       -- Optionally disable for specific languages
+  },
+}
 
